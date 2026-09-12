@@ -1,19 +1,24 @@
-# BiasLoraAsy Deepfake Detector
+# BiasConsist
 
-This repository is a cleaned research project for the `BiasLoraAsy` detector.
-It keeps the DeepfakeBench-style training/evaluation pipeline, but removes the
-extra detector implementations and configs that are not needed for this model.
+This repository is a research project for the **`BiasConsist`** deepfake detector framework.
+It provides a DeepfakeBench-style training and evaluation pipeline focused on parameter-efficient CLIP bias-tuning and consistency learning.
 
-## Model
+## Models
 
-`BiasLoraAsy` uses a CLIP ViT-L/14 vision backbone with LoRA adapters on the
-last attention blocks, trainable backbone biases, a binary classifier head, and
-an asymmetric supervised contrastive loss.
+The project includes several detector variants:
+
+- **`BiasConsistency`**: Weak-to-strong consistency learning with bias-only parameter adaptation.
+- **`BiasArtifactConsistency`**: Artifact-preserving consistency learning.
+- **`BiasEMATeacherConsistency`**: EMA-teacher consistency learning.
+- **`BiasLoraAsy`**: CLIP ViT backbone with LoRA adapters on the last attention blocks, trainable backbone biases, and asymmetric supervised contrastive loss.
 
 Main files:
 
+- `training/detectors/BiasConsistency.py`
+- `training/detectors/BiasArtifactConsistency.py`
+- `training/detectors/BiasEMATeacherConsistency.py`
 - `training/detectors/BiasLoraAsy.py`
-- `training/config/detector/BiasLoraAsy.yaml`
+- `training/config/detector/`
 - `training/train.py`
 - `training/test.py`
 
@@ -112,12 +117,15 @@ python training/test.py \
 Use `--save_feat --feat_out_dir <dir>` to dump feature pickles for t-SNE or
 other analysis.
 
-## Git
-
-This project is intended to be pushed to a new repository. It has no remote by
-default after cleanup, so add your new remote explicitly:
-
+## Git & Repository
 ```bash
-git remote add origin <your-new-repo-url>
+git clone https://github.com/thanhquan123hi1/BiasConsist.git
+cd BiasConsist
+```
+
+If connecting an existing local clone:
+```bash
+git remote set-url origin https://github.com/thanhquan123hi1/BiasConsist.git
 git push -u origin main
 ```
+

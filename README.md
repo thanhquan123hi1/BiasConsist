@@ -15,30 +15,30 @@
 
 ---
 
-## 📌 Table of Contents
-- [Overview](#-overview)
-- [Key Highlights & Contributions](#-key-highlights--contributions)
-- [Methodology & Architecture](#-methodology--architecture)
+## Table of Contents
+- [Overview](#overview)
+- [Key Highlights & Contributions](#key-highlights--contributions)
+- [Methodology & Architecture](#methodology--architecture)
   - [1. Visual Backbone & Feature Extractor](#1-visual-backbone--feature-extractor)
   - [2. Bias-Only Parameter-Efficient Tuning (BitFit)](#2-bias-only-parameter-efficient-tuning-bitfit)
   - [3. Weak-to-Strong Augmentations](#3-weak-to-strong-augmentations)
   - [4. Consistency Regularization & Optimization Objective](#4-consistency-regularization--optimization-objective)
-- [Feature Space Analysis (t-SNE)](#-feature-space-analysis-t-sne)
-- [Benchmark Results](#-benchmark-results)
+- [Feature Space Analysis (t-SNE)](#feature-space-analysis-t-sne)
+- [Benchmark Results](#benchmark-results)
   - [In-Domain Evaluation (FaceForensics++ C23)](#in-domain-evaluation-faceforensics-c23)
   - [Cross-Dataset Generalization](#cross-dataset-generalization)
   - [Cross-Method Generalization (DF40 Benchmark)](#cross-method-generalization-df40-benchmark)
   - [Ablation Studies](#ablation-studies)
-- [Repository Structure & Detector Variants](#-repository-structure--detector-variants)
-- [Installation & Setup](#-installation--setup)
-- [Data Preparation](#-data-preparation)
-- [Training](#-training)
-- [Evaluation & Feature Analysis](#-evaluation--feature-analysis)
-- [Citation & Acknowledgments](#-citation--acknowledgments)
+- [Repository Structure & Detector Variants](#repository-structure--detector-variants)
+- [Installation & Setup](#installation--setup)
+- [Data Preparation](#data-preparation)
+- [Training](#training)
+- [Evaluation & Feature Analysis](#evaluation--feature-analysis)
+- [Citation & Acknowledgments](#citation--acknowledgments)
 
 ---
 
-## 📖 Overview
+## Overview
 
 Deepfake creation techniques based on advanced GANs and Diffusion Models generate photorealistic facial manipulations that easily deceive human vision and conventional detection algorithms. Traditional detectors heavily rely on low-level frequency artifacts or standard convolutional neural networks (CNNs), which suffer from poor generalization when applied to unseen manipulation algorithms, novel datasets, or media compressed through social media pipelines.
 
@@ -53,7 +53,7 @@ While Vision Foundation Models such as **CLIP (ViT-L/14)** offer rich, highly tr
 
 ---
 
-## ✨ Key Highlights & Contributions
+## Key Highlights & Contributions
 
 | Feature | Full Fine-Tuning | Traditional Adapters (LoRA / Effort) | **BiasConsist (Ours)** |
 | :--- | :---: | :---: | :---: |
@@ -63,15 +63,15 @@ While Vision Foundation Models such as **CLIP (ViT-L/14)** offer rich, highly tr
 | **DF40 Cross-Method AUC** | 82.1% | 93.8% - 95.7% | **96.8% (SOTA on all 7 methods)** |
 | **Inference Overhead** | 1× | 1× - 1.2× | **1× (Standard single view, zero overhead)** |
 
-- ⚡ **Ultra Parameter-Efficient**: Updates only **0.27M parameters**, reducing training memory footprint and eliminating risk of weight corruption.
-- 🎯 **State-of-the-Art In-Domain**: Reaches **99.1% mean video-level AUC** on FaceForensics++ C23, outperforming SOTA PEFT detectors including GenD (98.9%), ForAda (96.8%), and Effort (93.9%).
-- 🌐 **Robust Cross-Dataset Generalization**: Achieves **92.9% average AUC** across five challenging unseen datasets (*Celeb-DF-v2, DFD, DFDC, DFDCP, UADFV*) without target-domain calibration.
-- 🛡️ **Unmatched Cross-Method Robustness**: Sets a new benchmark on the DF40 protocol with **96.8% average AUC**, achieving the **highest performance across all 7 unseen manipulation techniques** (*UniFace, BlendFace, E4S, FaceDancer, FSGAN, InSwap, SimSwap*).
-- ⏱️ **Zero Test-Time Overhead**: Consistency regularization is active strictly during training. Inference takes a single image/frame through the adapted CLIP backbone without any multi-view latency.
+- **Ultra Parameter-Efficient**: Updates only **0.27M parameters**, reducing training memory footprint and eliminating risk of weight corruption.
+- **State-of-the-Art In-Domain**: Reaches **99.1% mean video-level AUC** on FaceForensics++ C23, outperforming SOTA PEFT detectors including GenD (98.9%), ForAda (96.8%), and Effort (93.9%).
+- **Robust Cross-Dataset Generalization**: Achieves **92.9% average AUC** across five challenging unseen datasets (*Celeb-DF-v2, DFD, DFDC, DFDCP, UADFV*) without target-domain calibration.
+- **Unmatched Cross-Method Robustness**: Sets a new benchmark on the DF40 protocol with **96.8% average AUC**, achieving the **highest performance across all 7 unseen manipulation techniques** (*UniFace, BlendFace, E4S, FaceDancer, FSGAN, InSwap, SimSwap*).
+- **Zero Test-Time Overhead**: Consistency regularization is active strictly during training. Inference takes a single image/frame through the adapted CLIP backbone without any multi-view latency.
 
 ---
 
-## 🔬 Methodology & Architecture
+## Methodology & Architecture
 
 The overall pipeline of **BiasConsist** is illustrated below:
 
@@ -84,7 +84,7 @@ The overall pipeline of **BiasConsist** is illustrated below:
 ### 1. Visual Backbone & Feature Extractor
 - Given an input face crop $x \in \mathbb{R}^{H \times W \times 3}$, BiasConsist utilizes the **CLIP ViT-L/14** visual encoder consisting of 24 Transformer layers, hidden dimension $D = 1024$, intermediate MLP dimension $4096$, and 16 attention heads.
 - The output representation $z = f(x) \in \mathbb{R}^{1024}$ is extracted from the post-LayerNorm `[CLS]` token.
-- **$L_2$ Feature Normalization**: The token feature is $L_2$-normalized prior to classification:
+- **L2 Feature Normalization**: The token feature is L2-normalized prior to classification:
   $$\hat{z} = \frac{z}{\|z\|_2 + \epsilon}$$
   where $\epsilon = 10^{-6}$. Normalizing embedding features enforces angular margin separation between real and forged faces.
 - The normalized vector $\hat{z}$ is projected to binary classification logits $\hat{y} \in \mathbb{R}^2$ via a linear classification head:
@@ -115,19 +115,19 @@ Each input face image $x$ undergoes two separate stochastic augmentation pathway
 Both views are propagated through the shared model to produce weak logits $z_w$ and strong logits $z_s$:
 - **Supervised Cross-Entropy**: Both views are guided by ground-truth labels using cross-entropy with label smoothing ($\epsilon = 0.1$):
   $$\mathcal{L}_{CE} = \frac{1}{2} \left[ \mathcal{L}_{CE}(p_w, y) + \mathcal{L}_{CE}(p_s, y) \right]$$
-- **Weak-to-Strong Knowledge Consistency**: The weak prediction acts as a pseudo-teacher for the strongly perturbed student view. The teacher distribution is computed with temperature scaling $\tau = 1.0$ and **detached** from the computational graph:
-  $$p_w = \text{softmax}\left(\frac{z_w}{\tau}\right). \text{detach}(), \quad p_s = \text{softmax}\left(\frac{z_s}{\tau}\right)$$
+- **Weak-to-Strong Knowledge Consistency**: The weak prediction acts as a pseudo-teacher for the strongly perturbed student view. The teacher distribution is computed with temperature scaling $\tau = 1.0$ and detached from the computational graph:
+  $$p_w = \text{softmax}\left(\frac{z_w}{\tau}\right), \quad p_s = \text{softmax}\left(\frac{z_s}{\tau}\right)$$
   The consistency loss is formulated as the Kullback-Leibler (KL) divergence:
   $$\mathcal{L}_{cons} = \mathcal{D}_{KL}(p_w \parallel p_s) = \sum_{c=1}^2 p_w^{(c)} \log \left( \frac{p_w^{(c)}}{p_s^{(c)}} \right) \cdot \tau^2$$
 - **Dynamic Warmup Schedule**: To prevent erratic gradients in the early training phases before the weak view becomes reliable, the consistency coefficient $\alpha(t)$ linearly ramps up:
-  $$\alpha(t) = \alpha_{\max} \cdot \min\left(1, \frac{t}{T_{\text{warmup}}}\right)$$
-  where $\alpha_{\max} = 0.5$ and $T_{\text{warmup}} = 3$ epochs.
+  $$\alpha(t) = \alpha_{\max} \cdot \min\left(1, \frac{t}{T_w}\right)$$
+  where $\alpha_{\max} = 0.5$ and warmup duration $T_w = 3$ epochs.
 - **Overall Objective**:
   $$\mathcal{L} = \mathcal{L}_{CE} + \alpha(t) \mathcal{L}_{cons}$$
 
 ---
 
-## 🎨 Feature Space Analysis (t-SNE)
+## Feature Space Analysis (t-SNE)
 
 To understand why BiasConsist exhibits superior out-of-distribution generalization, we visualize the feature distributions learned by different adaptation methods on the unseen **Celeb-DF-v2** benchmark:
 
@@ -143,7 +143,7 @@ To understand why BiasConsist exhibits superior out-of-distribution generalizati
 
 ---
 
-## 📊 Benchmark Results
+## Benchmark Results
 
 All models are trained exclusively on **FaceForensics++ (FF++) C23** and tested across multiple out-of-domain benchmarks. Evaluation follows the standard video-level AUC (%) metric with 32 sampled frames per video.
 
@@ -202,16 +202,16 @@ Evaluated on seven unseen facial manipulation algorithms from DF40 to test resil
 | **GenD** | 0.10M | 0.964 | 0.912 | 0.988 | 0.954 | 0.974 | 0.965 | 0.944 | 0.957 |
 | **BiasConsist (Ours)** | **0.27M** | **0.977** | **0.930** | **0.990** | **0.972** | **0.978** | **0.969** | **0.960** | **0.968** |
 
-> 🏆 **Key Result**: BiasConsist ranks **#1 across all 7 unseen manipulation techniques**, achieving **96.8% average AUC**, proving that weak-to-strong consistency teaches the model manipulation-invariant features rather than method-specific artifacts.
+> **Key Result**: BiasConsist ranks **#1 across all 7 unseen manipulation techniques**, achieving **96.8% average AUC**, proving that weak-to-strong consistency teaches the model manipulation-invariant features rather than method-specific artifacts.
 
 ---
 
 ### Ablation Studies
 
-#### 1. PEFT Strategies and $L_2$ Normalization
-Video-level AUC reported across 5 random training seeds ($\text{Mean} \pm \text{Std}$):
+#### 1. PEFT Strategies and L2 Normalization
+Video-level AUC reported across 5 random training seeds (Mean ± Std):
 
-| Adaptation Strategy | Classifier Head | $L_2$ Norm | Loss | Cross-Dataset Average AUC |
+| Adaptation Strategy | Classifier Head | L2 Norm | Loss | Cross-Dataset Average AUC |
 | :--- | :---: | :---: | :---: | :---: |
 | **Full Fine-Tuning** | Linear | No | CE | 0.589 ± 0.033 |
 | **LoRA** | Linear | No | CE | 0.921 ± 0.007 |
@@ -233,7 +233,7 @@ Comparison of pure Bias-Only tuning vs. Consistency-guided BiasConsist across al
 
 ---
 
-## 📂 Repository Structure & Detector Variants
+## Repository Structure & Detector Variants
 
 ```text
 BiasConsist/
@@ -249,7 +249,7 @@ BiasConsist/
 │   │   ├── train_config.yaml        # Global training parameters
 │   │   ├── test_config.yaml         # Global testing parameters
 │   │   └── detector/                # Model-specific configurations
-│   │       ├── BiasConsistency.yaml                 # ⭐ Primary paper model
+│   │       ├── BiasConsistency.yaml                 # Primary paper model
 │   │       ├── BiasArtifactConsistency.yaml          # Artifact-preserving variant
 │   │       ├── BiasEMATeacherConsistency.yaml        # EMA teacher variant
 │   │       ├── BiasLoraAsy.yaml                     # LoRA + Asymmetric contrastive
@@ -285,7 +285,7 @@ BiasConsist/
 
 ---
 
-## ⚙️ Installation & Setup
+## Installation & Setup
 
 ### Requirements
 - Linux or Windows
@@ -314,13 +314,13 @@ pip install -r requirements.txt
 
 ---
 
-## 🗂️ Data Preparation
+## Data Preparation
 
 We follow the standard [DeepfakeBench](https://github.com/SCLBD/DeepfakeBench) preprocessing protocol:
 1. **Frame Extraction**: Sample 32 frames evenly from each video.
 2. **Face Detection & Alignment**: Detect facial landmarks and align using RetinaFace.
 3. **Bounding Box Expansion**: Enlarge the face bounding box by a factor of **1.3×**.
-4. **Cropping & Resizing**: Crop aligned face and resize to $224 \times 224$ pixels in lossless PNG format.
+4. **Cropping & Resizing**: Crop aligned face and resize to 224 × 224 pixels in lossless PNG format.
 
 ### Expected Directory Layout
 ```text
@@ -347,7 +347,7 @@ log_dir: logs/
 
 ---
 
-## 🚀 Training
+## Training
 
 To train **BiasConsist** on FaceForensics++ (C23) with evaluation on cross-dataset benchmarks:
 
@@ -362,9 +362,9 @@ python training/train.py \
 - **Backbone**: `openai/clip-vit-large-patch14`
 - **Trainable Parameters**: `272,384` (biases) + `2,050` (linear head) = `274,434`
 - **Batch Size**: 64 (train), 128 (test)
-- **Optimizer**: Adam ($\text{lr} = 10^{-4}$, $\text{weight\_decay} = 10^{-4}$)
-- **LR Schedule**: Cosine Annealing ($T_{\max} = 10$, $\eta_{\min} = 10^{-6}$)
-- **Consistency**: Temperature $\tau = 1.0$, $\alpha_{\max} = 0.5$ with 3-epoch warmup
+- **Optimizer**: Adam (`lr = 1e-4`, `weight_decay = 1e-4`)
+- **LR Schedule**: Cosine Annealing (`T_max = 10`, `eta_min = 1e-6`)
+- **Consistency**: Temperature `tau = 1.0`, `alpha_max = 0.5` with 3-epoch warmup
 - **Label Smoothing**: 0.1
 - **Epochs**: 10
 
@@ -377,7 +377,7 @@ python training/train.py \
 
 ---
 
-## 🧪 Evaluation & Feature Analysis
+## Evaluation & Feature Analysis
 
 ### Zero-Shot Testing on Unseen Datasets & Methods
 Evaluate a trained checkpoint across unseen manipulation benchmarks:
@@ -410,7 +410,7 @@ python training/test.py \
 
 ---
 
-## 📝 Citation & Acknowledgments
+## Citation & Acknowledgments
 
 If you find **BiasConsist** useful for your research, please consider citing:
 

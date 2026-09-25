@@ -82,26 +82,40 @@ The overall pipeline of **BiasConsist** is illustrated below:
 </p>
 
 ### 1. Visual Backbone & Feature Extractor
-- Given an input face crop $x \in \mathbb{R}^{H \times W \times 3}$, BiasConsist utilizes the **CLIP ViT-L/14** visual encoder consisting of 24 Transformer layers, hidden dimension $D = 1024$, intermediate MLP dimension $4096$, and 16 attention heads.
-- The output representation $z = f(x) \in \mathbb{R}^{1024}$ is extracted from the post-LayerNorm `[CLS]` token.
-- **L2 Feature Normalization**: The token feature is L2-normalized prior to classification:
-  $$\hat{z} = \frac{z}{\|z\|_2 + \epsilon}$$
-  where $\epsilon = 10^{-6}$. Normalizing embedding features enforces angular margin separation between real and forged faces.
-- The normalized vector $\hat{z}$ is projected to binary classification logits $\hat{y} \in \mathbb{R}^2$ via a linear classification head:
-  $$\hat{y} = W_{\text{head}} \hat{z} + b_{\text{head}}$$
+
+Given an input face crop $x \in \mathbb{R}^{H \times W \times 3}$, BiasConsist utilizes the **CLIP ViT-L/14** visual encoder consisting of 24 Transformer layers, hidden dimension $D = 1024$, intermediate MLP dimension $4096$, and 16 attention heads. The global feature representation $z = f(x) \in \mathbb{R}^{1024}$ is extracted from the post-LayerNorm `[CLS]` token.
+
+The extracted feature vector is L2-normalized prior to classification:
+
+$$
+\hat{z} = \frac{z}{\|z\|_2 + \epsilon}
+$$
+
+where $\epsilon = 10^{-6}$. Normalizing embedding features enforces angular margin separation between real and forged faces.
+
+The normalized representation $\hat{z}$ is then mapped to binary classification logits $\hat{y} \in \mathbb{R}^2$ via a lightweight linear classification head:
+
+$$
+\hat{y} = W_{\text{head}} \hat{z} + b_{\text{head}}
+$$
 
 ### 2. Bias-Only Parameter-Efficient Tuning (BitFit)
-To retain the vast zero-shot knowledge of CLIP and curb overfitting, all backbone weight tensors $\Theta_w$ (Multi-Head Self-Attention weights, MLP projection matrices, patch embeddings, and LayerNorm weight parameters) are strictly **frozen**.
 
-Only additive bias parameters $\Theta_b$ and the linear classification head are updated:
-$$\Theta_w \leftarrow \text{Frozen}, \quad \Theta_b \leftarrow \Theta_b - \eta \nabla_{\Theta_b} \mathcal{L}$$
+To retain the rich visual representations of CLIP and eliminate catastrophic forgetting, all backbone weight tensors $\Theta_w$ (Multi-Head Self-Attention weights, MLP projection matrices, patch embeddings, and LayerNorm weights) remain strictly frozen throughout training.
 
-- **Trainable parameters breakdown**:
-  - CLIP ViT-L/14 backbone biases: **272,384**
-  - Linear classification head ($1024 \times 2 + 2$): **2,050**
-  - **Total Trainable Parameters**: **274,434 (~0.27M)**
+Only the additive bias parameters $\Theta_b$ and the linear classification head are optimized:
+
+$$
+\Theta_w \leftarrow \text{Frozen}, \quad \Theta_b \leftarrow \Theta_b - \eta \nabla_{\Theta_b} \mathcal{L}
+$$
+
+Trainable parameters breakdown:
+- CLIP ViT-L/14 backbone biases: **272,384**
+- Linear classification head ($1024 \times 2 + 2$): **2,050**
+- **Total Trainable Parameters**: **274,434 (~0.27M)**
 
 ### 3. Weak-to-Strong Augmentations
+
 Each input face image $x$ undergoes two separate stochastic augmentation pathways:
 - **Weak Augmentation Branch ($A_w$)**: Applies only random horizontal flipping ($p = 0.5$). This retains subtle manipulation artifacts and fine-grained facial cues.
 - **Strong Augmentation Branch ($A_s$)**: Applies a composition of severe visual perturbations designed to simulate social media transmission and compression:
@@ -112,18 +126,44 @@ Each input face image $x$ undergoes two separate stochastic augmentation pathway
   - JPEG compression simulation with quality factor $Q \in [40, 100]$ ($p = 0.5$)
 
 ### 4. Consistency Regularization & Optimization Objective
-Both views are propagated through the shared model to produce weak logits $z_w$ and strong logits $z_s$:
-- **Supervised Cross-Entropy**: Both views are guided by ground-truth labels using cross-entropy with label smoothing ($\epsilon = 0.1$):
-  $$\mathcal{L}_{CE} = \frac{1}{2} \left[ \mathcal{L}_{CE}(p_w, y) + \mathcal{L}_{CE}(p_s, y) \right]$$
-- **Weak-to-Strong Knowledge Consistency**: The weak prediction acts as a pseudo-teacher for the strongly perturbed student view. The teacher distribution is computed with temperature scaling $\tau = 1.0$ and detached from the computational graph:
-  $$p_w = \text{softmax}\left(\frac{z_w}{\tau}\right), \quad p_s = \text{softmax}\left(\frac{z_s}{\tau}\right)$$
-  The consistency loss is formulated as the Kullback-Leibler (KL) divergence:
-  $$\mathcal{L}_{cons} = \mathcal{D}_{KL}(p_w \parallel p_s) = \sum_{c=1}^2 p_w^{(c)} \log \left( \frac{p_w^{(c)}}{p_s^{(c)}} \right) \cdot \tau^2$$
-- **Dynamic Warmup Schedule**: To prevent erratic gradients in the early training phases before the weak view becomes reliable, the consistency coefficient $\alpha(t)$ linearly ramps up:
-  $$\alpha(t) = \alpha_{\max} \cdot \min\left(1, \frac{t}{T_w}\right)$$
-  where $\alpha_{\max} = 0.5$ and warmup duration $T_w = 3$ epochs.
-- **Overall Objective**:
-  $$\mathcal{L} = \mathcal{L}_{CE} + \alpha(t) \mathcal{L}_{cons}$$
+
+Both views are propagated through the shared model to produce weak logits $z_w$ and strong logits $z_s$.
+
+#### Supervised Cross-Entropy
+Both views are supervised by ground-truth labels using cross-entropy with label smoothing ($\epsilon = 0.1$):
+
+$$
+\mathcal{L}_{\text{CE}} = \frac{1}{2} \left[ \mathcal{L}_{\text{CE}}(p_w, y) + \mathcal{L}_{\text{CE}}(p_s, y) \right]
+$$
+
+#### Weak-to-Strong Knowledge Consistency
+The weak prediction acts as a pseudo-teacher for the strongly perturbed student view. The teacher distribution is computed with temperature scaling $\tau = 1.0$ and detached from the computational graph:
+
+$$
+p_w = \text{softmax}\left(\frac{z_w}{\tau}\right), \quad p_s = \text{softmax}\left(\frac{z_s}{\tau}\right)
+$$
+
+The consistency loss is formulated as the Kullback-Leibler (KL) divergence from the teacher to the student:
+
+$$
+\mathcal{L}_{\text{cons}} = \mathcal{D}_{\text{KL}}(p_w \parallel p_s) = \sum_{c=1}^2 p_w^{(c)} \log \left( \frac{p_w^{(c)}}{p_s^{(c)}} \right) \cdot \tau^2
+$$
+
+#### Dynamic Warmup Schedule
+To stabilize the early training phase before the weak view becomes reliable, the consistency coefficient $\alpha(t)$ linearly ramps up:
+
+$$
+\alpha(t) = \alpha_{\max} \cdot \min\left(1, \frac{t}{T_w}\right)
+$$
+
+where $\alpha_{\max} = 0.5$ and warmup duration $T_w = 3$ epochs.
+
+#### Overall Training Objective
+The overall training loss combines the supervised cross-entropy with the consistency regularization:
+
+$$
+\mathcal{L} = \mathcal{L}_{\text{CE}} + \alpha(t) \mathcal{L}_{\text{cons}}
+$$
 
 ---
 
